@@ -1,15 +1,21 @@
+import 'package:amplify_api/amplify_api.dart';
 import 'package:flutter/material.dart';
-import 'package:mini_project_five/pages/get_bus_time.dart';
+import 'package:mini_project_five/models/ModelProvider.dart';
 import 'package:mini_project_five/pages/busdata.dart';
-import 'package:flutter_switch/flutter_switch.dart';
-import 'package:mini_project_five/pages/map_page.dart';
 import 'package:mini_project_five/screen/evening_bus.dart';
+import 'package:mini_project_five/amplifyconfiguration.dart';
+import 'package:amplify_datastore/amplify_datastore.dart';
+import 'package:amplify_flutter/amplify_flutter.dart';
+import 'package:amplify_api_dart/amplify_api_dart.dart';
+import 'package:uuid/uuid.dart';
 
 
 class AfternoonService extends StatefulWidget {
   final Function(int) updateSelectedBox;
 
+
   AfternoonService({required this.updateSelectedBox});
+
 
   @override
   _AfternoonServiceState createState() => _AfternoonServiceState();
@@ -22,6 +28,79 @@ class _AfternoonServiceState extends State<AfternoonService> {
   bool confirmationPressed = false;
   bool showBookingDetails = false;
   DateTime currentTime = DateTime.now();
+  String? BookingID;
+
+
+@override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _configureAmplify();
+  }
+
+
+  void _configureAmplify() async {
+    final provider = ModelProvider();
+    final amplifyApi = AmplifyAPI(options: APIPluginOptions(modelProvider: provider));
+    final dataStorePlugin = AmplifyDataStore(modelProvider: provider);
+
+    Amplify.addPlugin(dataStorePlugin);
+    Amplify.addPlugin(amplifyApi);
+    Amplify.configure(amplifyconfig);
+
+    print('Amplify configured');
+  }
+
+  Future<void> create(String _MRTStation, int _TripNo) async {
+    try {
+      final model = BOOKINGDETAILS5(
+        id: Uuid().v4(),
+        MRTStation: _MRTStation,
+        TripNo: _TripNo,
+      );
+
+      final request = ModelMutations.create(model);
+      final response = await Amplify.API.mutate(request: request).response;
+
+      final createdBOOKINGDETAILS5 = response.data;
+      if (createdBOOKINGDETAILS5 == null) {
+        safePrint('errors: ${response.errors}');
+        return;
+      }
+
+      String id  = createdBOOKINGDETAILS5.id;
+      setState(() {
+        BookingID = id;
+      });
+      safePrint('Mutation result: $BookingID');// Return the ID of the created object
+    } on ApiException catch (e) {
+      safePrint('Mutation failed: $e');
+    }
+  }
+
+  Future<BOOKINGDETAILS5?> readByID() async {
+    final request = ModelQueries.list(
+      BOOKINGDETAILS5.classType,
+      where: BOOKINGDETAILS5.ID.eq(BookingID),
+    );
+    final response = await Amplify.API.query(request: request).response;
+    final data = response.data?.items?.firstOrNull;
+    return data;
+  }
+
+
+
+
+  Future<void> delete() async {
+    final BOOKINGDETAILS5? bookingToDelete = await readByID();
+    if (bookingToDelete != null) {
+      final request = ModelMutations.delete(bookingToDelete);
+      final response = await Amplify.API.mutate(request: request).response;
+    } else {
+      print('No booking found with ID: $BookingID');
+    }
+  }
+
 
   void updateSelectedBox(int box) {
     if (!confirmationPressed) {
@@ -168,18 +247,26 @@ class _AfternoonServiceState extends State<AfternoonService> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => updateSelectedBox(1), // Update KLT
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      height: 70,
-                      color: selectedBox == 1 ? Colors.blueAccent : Colors.grey,
-                      child: Center(
-                        child: Text(
-                          'King Albert MRT',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
+                  onTap: () {
+                    setState(() {
+                      updateSelectedBox(1);
+                    });
+    } , // Update CLT
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 0),
+                    height: selectedBox == 1 ? 70 : 40,
+                    curve: Curves.easeOutCubic,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Container(
+                        color: selectedBox == 1 ? Colors.blueAccent : Colors.grey,
+                        child: Center(
+                          child: Text(
+                            'King Albert Park MRT',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                            ),
                           ),
                         ),
                       ),
@@ -187,21 +274,30 @@ class _AfternoonServiceState extends State<AfternoonService> {
                   ),
                 ),
               ),
+
               SizedBox(width: 8),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => updateSelectedBox(2), // Update CLT
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      height: 70,
-                      color: selectedBox == 2 ? Colors.blueAccent : Colors.grey,
-                      child: Center(
-                        child: Text(
-                          'Clementi MRT',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
+                  onTap: () {
+                    setState(() {
+    updateSelectedBox(2);
+                    });
+    },  // Update CLT
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 0),
+                    height: selectedBox == 2 ? 70 : 40,
+                    curve: Curves.easeOutCubic,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Container(
+                        color: selectedBox == 2 ? Colors.blueAccent : Colors.grey,
+                        child: Center(
+                          child: Text(
+                            'Clementi MRT',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                            ),
                           ),
                         ),
                       ),
@@ -209,6 +305,7 @@ class _AfternoonServiceState extends State<AfternoonService> {
                   ),
                 ),
               ),
+
             ],
           ),
         ),
@@ -256,6 +353,7 @@ class _AfternoonServiceState extends State<AfternoonService> {
             setState(() {
               confirmationPressed = false;
               showBookingDetails = false;
+              delete();
             });
           },
         )
@@ -271,6 +369,7 @@ class _AfternoonServiceState extends State<AfternoonService> {
             setState(() {
               confirmationPressed = true;
               showBookingDetails = true;
+              create(selectedStation, selectedBox == 1 ? bookedTripIndexKLT!+1 : bookedTripIndexCLT!+1);
             });
             showBookingConfirmationDialog(context);
           },
@@ -462,6 +561,7 @@ class BookingConfirmation extends StatelessWidget {
     DateTime currentTime = DateTime.now();
     bool isAfter3pm = currentTime.hour >= 15 ? true : false;
 
+    if(bookedTime != null){
     return Column(
       children: [
         Padding(
@@ -575,6 +675,8 @@ class BookingConfirmation extends StatelessWidget {
             : CLTBus1DepartureTime, context)
 
       ],
-    );
+    );}
+    else
+    return SizedBox();
   }
 }
